@@ -1,0 +1,10 @@
+Package: com.cryptic.libjelbrekicu
+Name: libjelbrekicu
+Depends: 
+Version: 1.0.0
+Architecture: iphoneos-arm
+Description: JelBrekICU upload library.
+Maintainer: Cryptic
+Author: Cryptic
+Section: System
+Tag: role::developer
