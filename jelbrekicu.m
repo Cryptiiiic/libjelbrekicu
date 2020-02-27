@@ -2,14 +2,17 @@
 #import <CoreFoundation/CoreFoundation.h>
 #import "jelbrekicu.h"
 
+
 @implementation JelBrekICU
 
 - (NSString *)uploadUIImage:(UIImage *)image jelbrekKey:(NSString *)key siteURL:(NSURL *)url
 {
+    NSConditionLock* barrierLock = [[NSConditionLock alloc] initWithCondition:NO];
     __block NSString *uploadURL = nil;
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), 
 	^{
-        NSData *imageData = UIImagePNGRepresentation(image);
+        [barrierLock lock];
+        NSData *imageData = UIImageJPEGRepresentation(image, 0.1);
         NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:url];
         NSString *boundaryString = [NSString stringWithFormat:@"JelBrekICU-%@", [[NSUUID UUID] UUIDString]];
         NSString *contentType = [NSString stringWithFormat:@"multipart/form-data; boundary=%@", boundaryString];
@@ -24,18 +27,11 @@
 
         [request setHTTPMethod:@"POST"];
         [request addValue:@"jelbrekicu-tweak/1.0.0" forHTTPHeaderField:@"User-Agent"];
+        [request addValue:key forHTTPHeaderField:@"authorization"];
         [request addValue:contentType forHTTPHeaderField:@"Content-Type"];
 
         BOUND();
-        CONTENT(@"\"method\"");
-        APPEND([@"json" dataUsingEncoding:NSUTF8StringEncoding]);
-        END();
-        BOUND();
-        CONTENT(@"\"key\"");
-        APPEND([key dataUsingEncoding:NSUTF8StringEncoding]);
-        END();
-        BOUND();
-        CONTENT1(@"\"file\"; filename=\"jelbrek_icu.png\"");
+        CONTENT1(@"\"x\"; filename=\"jelbrek_icu.jpg\"");
         CONTENT_TYPE();
         APPEND(imageData);
         END();
@@ -43,30 +39,41 @@
 
         [request setHTTPBody:body];
 
-        NSLog(@"JelbrekICU: NSMutableURLRequest: request: %@", [request allHTTPHeaderFields]);
+        if(self.logging)
+            NSLog(@"JelbrekICU: NSMutableURLRequest: request: %@", [request allHTTPHeaderFields]);
         dispatch_semaphore_t semaphore = dispatch_semaphore_create(0);
         NSURLSessionDataTask *dataTask = [[NSURLSession sharedSession] dataTaskWithRequest:request completionHandler:^(NSData *data, NSURLResponse *response, NSError *error)
         {
             NSHTTPURLResponse *httpResponse = (NSHTTPURLResponse *)response;
             NSDictionary *responseDict = [httpResponse allHeaderFields];
-            if(httpResponse.statusCode == 200)
+            if(httpResponse.statusCode == 200 || httpResponse.statusCode == 201)
             {
                 NSError *jsonError = nil;
                 NSArray *jsonArray = [NSJSONSerialization JSONObjectWithData:data options:kNilOptions error:&jsonError];
                 if (jsonError)
                 {
-                    NSLog(@"JelbrekICU: NSURLSessionDataTask: jsonError: %@ data: %@", jsonError, [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding]);
+                    if(self.logging)
+                        NSLog(@"JelbrekICU: NSURLSessionDataTask: jsonError: %@ data: %@", jsonError, [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding]);
                 }
-                uploadURL = [jsonArray valueForKey:@"filename"];
-                NSLog(@"JelbrekICU: NSURLSessionDataTask: data: %@ error: %@", uploadURL, error);
+                uploadURL = [jsonArray valueForKey:@"url"];
+                if(self.logging)
+                    NSLog(@"JelbrekICU: NSURLSessionDataTask: data: %@ error: %@", uploadURL, error);
                 dispatch_semaphore_signal(semaphore);
+                [barrierLock unlockWithCondition:YES];
             }
             else
-                NSLog(@"JelbrekICU: NSURLSessionDataTask: failed: statusCode: %ld data: %@ error: %@", (long)httpResponse.statusCode, responseDict, error);
+            {
+                if(self.logging)
+                    NSLog(@"JelbrekICU: NSURLSessionDataTask: failed: statusCode: %ld data: %@ error: %@", (long)httpResponse.statusCode, responseDict, error);
+            }
         }];
         [dataTask resume];
+        [barrierLock lockWhenCondition:YES];
+        [barrierLock unlock];
         dispatch_semaphore_wait(semaphore, DISPATCH_TIME_FOREVER);
     });
+    [barrierLock lockWhenCondition:YES];
+    [barrierLock unlock];
     return uploadURL;
 }
 
