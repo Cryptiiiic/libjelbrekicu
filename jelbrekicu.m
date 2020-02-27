@@ -5,14 +5,13 @@
 
 @implementation JelBrekICU
 
-- (NSString *)uploadUIImage:(UIImage *)image jelbrekKey:(NSString *)key siteURL:(NSURL *)url
+- (void)uploadUIImage:(UIImage *)image jelbrekKey:(NSString *)key siteURL:(NSURL *)url completionHandler:(void(^)(NSString *))completionHandler
 {
-    NSConditionLock* barrierLock = [[NSConditionLock alloc] initWithCondition:NO];
     __block NSString *uploadURL = nil;
     JelBrekICU *jbicu = [JelBrekICU new];
-    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), 
+    dispatch_queue_t current_queue = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0);
+    dispatch_async(current_queue, 
 	^{
-        [barrierLock lock];
         NSData *imageData = UIImageJPEGRepresentation(image, 0.1);
         NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:url];
         NSString *boundaryString = [NSString stringWithFormat:@"JelBrekICU-%@", [[NSUUID UUID] UUIDString]];
@@ -42,7 +41,6 @@
 
         if([jbicu logging])
             NSLog(@"JelbrekICU: NSMutableURLRequest: request: %@", [request allHTTPHeaderFields]);
-        dispatch_semaphore_t semaphore = dispatch_semaphore_create(0);
         NSURLSessionDataTask *dataTask = [[NSURLSession sharedSession] dataTaskWithRequest:request completionHandler:^(NSData *data, NSURLResponse *response, NSError *error)
         {
             NSHTTPURLResponse *httpResponse = (NSHTTPURLResponse *)response;
@@ -59,8 +57,10 @@
                 uploadURL = [jsonArray valueForKey:@"url"];
                 if([jbicu logging])
                     NSLog(@"JelbrekICU: NSURLSessionDataTask: data: %@ error: %@", uploadURL, error);
-                dispatch_semaphore_signal(semaphore);
-                [barrierLock unlockWithCondition:YES];
+                    dispatch_async(current_queue, 
+                    ^{
+                        completionHandler(uploadURL);
+                    });
             }
             else
             {
@@ -69,13 +69,7 @@
             }
         }];
         [dataTask resume];
-        [barrierLock lockWhenCondition:YES];
-        [barrierLock unlock];
-        dispatch_semaphore_wait(semaphore, DISPATCH_TIME_FOREVER);
     });
-    [barrierLock lockWhenCondition:YES];
-    [barrierLock unlock];
-    return uploadURL;
 }
 
 @end

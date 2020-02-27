@@ -1,5 +1,5 @@
 
 @interface JelBrekICU : NSObject
 @property BOOL logging;
-- (NSString *)uploadUIImage:(UIImage *)image jelbrekKey:(NSString *)key siteURL:(NSURL *)url;
+- (void)uploadUIImage:(UIImage *)image jelbrekKey:(NSString *)key siteURL:(NSURL *)url completionHandler:(void(^)(NSString *))completionHandler;
 @end
