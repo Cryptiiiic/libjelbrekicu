@@ -9,6 +9,7 @@
 {
     NSConditionLock* barrierLock = [[NSConditionLock alloc] initWithCondition:NO];
     __block NSString *uploadURL = nil;
+    JelBrekICU *jbicu = [JelBrekICU new];
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), 
 	^{
         [barrierLock lock];
@@ -39,7 +40,7 @@
 
         [request setHTTPBody:body];
 
-        if(self.logging)
+        if([jbicu logging])
             NSLog(@"JelbrekICU: NSMutableURLRequest: request: %@", [request allHTTPHeaderFields]);
         dispatch_semaphore_t semaphore = dispatch_semaphore_create(0);
         NSURLSessionDataTask *dataTask = [[NSURLSession sharedSession] dataTaskWithRequest:request completionHandler:^(NSData *data, NSURLResponse *response, NSError *error)
@@ -52,18 +53,18 @@
                 NSArray *jsonArray = [NSJSONSerialization JSONObjectWithData:data options:kNilOptions error:&jsonError];
                 if (jsonError)
                 {
-                    if(self.logging)
+                    if([jbicu logging])
                         NSLog(@"JelbrekICU: NSURLSessionDataTask: jsonError: %@ data: %@", jsonError, [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding]);
                 }
                 uploadURL = [jsonArray valueForKey:@"url"];
-                if(self.logging)
+                if([jbicu logging])
                     NSLog(@"JelbrekICU: NSURLSessionDataTask: data: %@ error: %@", uploadURL, error);
                 dispatch_semaphore_signal(semaphore);
                 [barrierLock unlockWithCondition:YES];
             }
             else
             {
-                if(self.logging)
+                if([jbicu logging])
                     NSLog(@"JelbrekICU: NSURLSessionDataTask: failed: statusCode: %ld data: %@ error: %@", (long)httpResponse.statusCode, responseDict, error);
             }
         }];
