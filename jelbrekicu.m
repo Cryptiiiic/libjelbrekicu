@@ -20,7 +20,7 @@
     dispatch_async(current_queue, 
 	^{
 
-        NSData *imageData = UIImageJPEGRepresentation(image, 0.1);
+        NSData *imageData = UIImageJPEGRepresentation(image, 3);
         NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:url];
         NSString *boundaryString = [NSString stringWithFormat:@"JelBrekICU-%@", [[NSUUID UUID] UUIDString]];
         NSString *contentType = [NSString stringWithFormat:@"multipart/form-data; boundary=%@", boundaryString];
