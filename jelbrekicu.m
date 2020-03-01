@@ -110,7 +110,7 @@
                 }
                 success = [[jsonArray valueForKey:@"success"] boolValue];
                 if([jbicu logging])
-                    NSLog(@"JelbrekICU: NSURLSessionDataTask: success: %d error: %@", success, error);
+                    NSLog(@"JelbrekICU: NSURLSessionDataTask: success: %@ error: %@", success ? @"YES" : @"NO", error);
                 dispatch_async(current_queue, 
                 ^{
                     completionHandler(success);
