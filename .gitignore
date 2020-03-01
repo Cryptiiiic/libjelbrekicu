@@ -3,3 +3,4 @@
 .theos
 packages
 .fseventsd
+.vs*
